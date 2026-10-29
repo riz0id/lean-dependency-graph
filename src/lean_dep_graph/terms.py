@@ -19,91 +19,77 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from typing import Any
 
-from .ndjson import Export, ExportFormatError
+from .ndjson import EXPR_KEYS, Export, ExportFormatError
 
-#: Type of a ``Literal.natVal`` expression.
+__all__: list[str] = [
+    "NAT_TYPE",
+    "STR_TYPE",
+    "check_expr_keys",
+    "collect_expr_deps",
+    "expr_children",
+    "expr_own_consts",
+]
+
 NAT_TYPE = "Nat"
-#: Type of a ``Literal.strVal`` expression.
 STR_TYPE = "String"
 
 
 def expr_children(rec: dict[str, Any]) -> tuple[int, ...]:
     """Expression indices directly referenced by an expression record."""
-    if "app" in rec:
-        a = rec["app"]
-        return (int(a["fn"]), int(a["arg"]))
-    if "lam" in rec:
-        b = rec["lam"]
-        return (int(b["type"]), int(b["body"]))
-    if "forallE" in rec:
-        b = rec["forallE"]
-        return (int(b["type"]), int(b["body"]))
-    if "letE" in rec:
-        le = rec["letE"]
-        return (int(le["type"]), int(le["value"]), int(le["body"]))
-    if "proj" in rec:
-        return (int(rec["proj"]["struct"]),)
-    if "mdata" in rec:
-        return (int(rec["mdata"]["expr"]),)
-    # bvar, sort, const, natVal, strVal are leaves.
-    return ()
+    match rec:
+        case {"app": app}:
+            return (int(app["fn"]), int(app["arg"]))
+        case {"lam": binder} | {"forallE": binder}:
+            return (int(binder["type"]), int(binder["body"]))
+        case {"letE": le}:
+            return (int(le["type"]), int(le["value"]), int(le["body"]))
+        case {"proj": proj}:
+            return (int(proj["struct"]),)
+        case {"mdata": mdata}:
+            return (int(mdata["expr"]),)
+        case _:
+            return ()
 
 
 def expr_own_consts(
     ex: Export, rec: dict[str, Any], *, include_literal_types: bool = True
 ) -> Iterator[str]:
     """Constant names referenced by this record itself, ignoring children."""
-    if "const" in rec:
-        yield ex.name(int(rec["const"]["name"]))
-    elif "proj" in rec:
-        yield ex.name(int(rec["proj"]["typeName"]))
-    elif include_literal_types:
-        if "natVal" in rec:
+    match rec:
+        case {"const": const}:
+            yield ex.name(int(const["name"]))
+        case {"proj": proj}:
+            yield ex.name(int(proj["typeName"]))
+        case {"natVal": _} if include_literal_types:
             yield NAT_TYPE
-        elif "strVal" in rec:
+        case {"strVal": _} if include_literal_types:
             yield STR_TYPE
 
 
 def collect_expr_deps(
     ex: Export, roots: Iterable[int], *, include_literal_types: bool = True
 ) -> set[str]:
-    """Constant names reachable from ``roots``.
-
-    Walks the expression DAG iteratively with an explicit stack: terms nest far
-    deeper than Python's recursion limit allows, and interning means a subterm
-    is typically shared by many parents, so a visited set is required to avoid
-    re-walking it.
-
-    Deliberately not memoized across calls.  Caching a dependency *set* per
-    expression index would avoid re-walking subterms shared between different
-    declarations, but materializes one set per visited node and so scales with
-    the whole export rather than with a single declaration.  The visited-set
-    walk keeps peak memory proportional to one declaration.
-    """
     out: set[str] = set()
     seen: set[int] = set()
-    stack = [int(r) for r in roots]
+    stack: list[int] = [int(r) for r in roots]
+
     while stack:
-        idx = stack.pop()
+        idx: int = stack.pop()
+
         if idx in seen:
             continue
+
         seen.add(idx)
-        rec = ex.expr(idx)
+        rec: dict[str, Any] = ex.expr(idx)
         out.update(expr_own_consts(ex, rec, include_literal_types=include_literal_types))
+
         for child in expr_children(rec):
             if child not in seen:
                 stack.append(child)
+
     return out
 
 
 def check_expr_keys(rec: dict[str, Any]) -> None:
-    """Raise if a record carries no recognised expression key.
-
-    Called when validating a fixture; a new expression constructor added to the
-    format upstream would otherwise be traversed as a leaf and silently drop
-    whatever it references.
-    """
-    from .ndjson import EXPR_KEYS
-
     if not EXPR_KEYS.intersection(rec):
         raise ExportFormatError(f"expression record {rec.get('ie')} has no known kind")

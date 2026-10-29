@@ -11,6 +11,13 @@ from pathlib import Path
 
 from .ndjson import Export, load
 
+__all__ = [
+    "DEFAULT_BINARY_NAME",
+    "Exporter",
+    "LeanProject",
+    "LeanToolingError",
+]
+
 DEFAULT_BINARY_NAME = "lean4export"
 
 
@@ -18,10 +25,8 @@ class LeanToolingError(Exception):
     """A ``lake`` or ``lean4export`` invocation failed."""
 
 
-def _run(cmd: Sequence[str], cwd: Path) -> str:
-    proc = subprocess.run(  # noqa: S603
-        list(cmd), cwd=cwd, capture_output=True, text=True, check=False
-    )
+def run(cmd: Sequence[str], cwd: Path) -> str:
+    proc = subprocess.run(list(cmd), cwd=cwd, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
         raise LeanToolingError(
             f"command failed ({proc.returncode}): {' '.join(cmd)}\n"
@@ -57,8 +62,8 @@ class LeanProject:
         rather than ``lake build``.
         """
         target = f"{lib}:modules" if lib else ":modules"
-        raw = _run(["lake", "query", "--json", target], self.root)
-        return _parse_modules(raw)
+        raw = run(["lake", "query", "--json", target], self.root)
+        return parse_modules(raw)
 
     def build(self, lib: str | None = None) -> None:
         """Build Lean artifacts.
@@ -68,21 +73,20 @@ class LeanProject:
         artifact is trusted as-is and yields a wrong graph with no error.
         """
         target = f"{lib}:leanArts" if lib else "leanArts"
-        _run(["lake", "build", target], self.root)
+        run(["lake", "build", target], self.root)
 
     def olean_missing(self, modules: Sequence[str]) -> list[str]:
         """Modules with no ``.olean`` under ``.lake/build/lib``."""
         libdir = self.root / ".lake" / "build" / "lib"
-        missing = []
+        missing: list[str] = []
         for mod in modules:
             rel = Path(*mod.split(".")).with_suffix(".olean")
-            # Lean 4.23+ nests artifacts under a `lean/` subdirectory.
             if not (libdir / rel).exists() and not (libdir / "lean" / rel).exists():
                 missing.append(mod)
         return missing
 
 
-def _parse_modules(raw: str) -> list[str]:
+def parse_modules(raw: str) -> list[str]:
     """Extract module names from ``lake query --json`` output.
 
     Tolerant of shape: Lake has emitted both a single JSON document and
@@ -110,23 +114,24 @@ def _parse_modules(raw: str) -> list[str]:
     names: list[str] = []
 
     def absorb(value: object) -> None:
-        if isinstance(value, str):
-            names.append(value)
-        elif isinstance(value, list):
-            for item in value:
-                absorb(item)
-        elif isinstance(value, dict):
-            for key in ("name", "module", "mod"):
-                if isinstance(value.get(key), str):
-                    names.append(value[key])
-                    return
-            for item in value.values():
-                absorb(item)
+        match value:
+            case str():
+                names.append(value)
+            case list():
+                for item in value:
+                    absorb(item)
+            case dict():
+                for key in ("name", "module", "mod"):
+                    candidate = value.get(key)
+                    if isinstance(candidate, str):
+                        names.append(candidate)
+                        return
+                for item in value.values():
+                    absorb(item)
 
     for payload in payloads:
         absorb(payload)
 
-    # Preserve order, drop duplicates.
     return list(dict.fromkeys(names))
 
 
@@ -188,7 +193,7 @@ class Exporter:
     ) -> Iterator[str]:
         """Yield NDJSON lines, streaming rather than buffering the whole export."""
         cmd = self.command(modules, decls=decls, unsafe=unsafe, mdata=mdata)
-        proc = subprocess.Popen(  # noqa: S603
+        proc = subprocess.Popen(
             cmd,
             cwd=project.root,
             stdout=subprocess.PIPE,
