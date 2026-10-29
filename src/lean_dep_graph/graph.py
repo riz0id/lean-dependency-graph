@@ -64,11 +64,6 @@ def decl_name(ex: Export, body: dict[str, Any]) -> str:
 
 
 def parse_decls(ex: Export) -> tuple[dict[str, Decl], list[tuple[str, list[str]]]]:
-    """Return every declaration plus the grouping constraints to apply.
-
-    The second element lists ``(kind, member_names)`` for each group; singleton
-    groups are implied by any declaration not named in one.
-    """
     decls: dict[str, Decl] = {}
     groups: list[tuple[str, list[str]]] = []
     quot_members: list[str] = []
@@ -131,18 +126,21 @@ def parse_decls(ex: Export) -> tuple[dict[str, Decl], list[tuple[str, list[str]]
 def build_groups(
     decls: dict[str, Decl], constraints: list[tuple[str, list[str]]]
 ) -> tuple[dict[str, Group], dict[str, str]]:
-    """Assign every declaration to a group; returns (groups, name -> group id)."""
     node_of: dict[str, str] = {}
     groups: dict[str, Group] = {}
 
     for kind, members in constraints:
-        present = [m for m in members if m in decls]
+        present: list[str] = [m for m in members if m in decls]
+
         if not present:
             continue
+
         if any(m in node_of for m in present):
             continue
-        gid = present[0]
+
+        gid: str = present[0]
         groups[gid] = Group(id=gid, members=present, kind=kind)
+
         for m in present:
             node_of[m] = gid
 
@@ -155,15 +153,6 @@ def build_groups(
 
 
 class DeclGraph:
-    """A declaration-level dependency graph over a Lean export.
-
-    Nodes are :class:`Group` instances -- usually a single declaration, but a
-    mutual inductive block, mutual definition block, or the quotient package
-    is one node, because the kernel will only accept those as a unit.  Public
-    queries take and return individual declaration names and translate through
-    the grouping internally.
-    """
-
     def __init__(
         self,
         export: Export,
@@ -197,14 +186,18 @@ class DeclGraph:
             self.raw_deps[name] = deps
 
         for name, deps in self.raw_deps.items():
-            src = self.group_ids[name]
+            src: str = self.group_ids[name]
+
             for dep in deps:
-                dst = self.group_ids.get(dep)
+                dst: str | None = self.group_ids.get(dep)
+
                 if dst is None:
                     self.missing.add(dep)
                     continue
+
                 if dst != src:
-                    g.add_edge(src, dst)
+                    g.add_edge(u_of_edge=src, v_of_edge=dst)
+
         return g
 
     def __contains__(self, name: str) -> bool:
@@ -215,7 +208,6 @@ class DeclGraph:
 
     @property
     def names(self) -> frozenset[str]:
-        """Every declaration name in the export."""
         return frozenset(self.decls)
 
     def decl(self, name: str) -> Decl:
@@ -225,7 +217,6 @@ class DeclGraph:
             raise KeyError(f"no declaration named {name!r} in this export") from None
 
     def node_of(self, name: str) -> str:
-        """The group id a declaration belongs to."""
         try:
             return self.group_ids[name]
         except KeyError:
@@ -235,19 +226,14 @@ class DeclGraph:
         return self.groups[self.node_of(name)]
 
     def members(self, name: str) -> list[str]:
-        """All declarations that enter the kernel together with ``name``."""
         return self.group_of(name).members
 
     def direct_deps(self, name: str) -> frozenset[str]:
-        """Constants referenced by this one declaration's type and value.
-
-        Not grouped and not transitive -- the raw extraction result.
-        """
-        if name not in self.decls:
+        if name in self.decls:
+            return self.raw_deps[name]
+        else:
             raise KeyError(f"no declaration named {name!r} in this export")
-        return self.raw_deps[name]
 
 
 def build_graph(export: Export, *, include_literal_types: bool = True) -> DeclGraph:
-    """Build a :class:`DeclGraph` from a parsed export."""
     return DeclGraph(export, include_literal_types=include_literal_types)

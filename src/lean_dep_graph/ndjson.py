@@ -18,9 +18,9 @@ from typing import Any
 __all__: list[str] = [
     "ANONYMOUS",
     "DeclKey",
-    "EXPR_KEYS",
     "Export",
     "ExportFormatError",
+    "ExprKey",
     "iter_records",
     "load",
     "load_path",
@@ -40,21 +40,21 @@ class DeclKey(StrEnum):
     RECURSOR = "recursor"
 
 
-EXPR_KEYS: frozenset[str] = frozenset(
-    {
-        "bvar",
-        "sort",
-        "const",
-        "app",
-        "lam",
-        "forallE",
-        "letE",
-        "proj",
-        "natVal",
-        "strVal",
-        "mdata",
-    }
-)
+class ExprKey(StrEnum):
+    """Record keys that identify an expression's constructor."""
+
+    BVAR = "bvar"
+    SORT = "sort"
+    CONST = "const"
+    APP = "app"
+    LAM = "lam"
+    FORALL = "forallE"
+    LET = "letE"
+    PROJ = "proj"
+    NAT_VAL = "natVal"
+    STR_VAL = "strVal"
+    MDATA = "mdata"
+
 
 ANONYMOUS = 0
 

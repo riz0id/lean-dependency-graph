@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lean_dep_graph.ndjson import load
+from lean_dep_graph.ndjson import ExprKey, load
 from lean_dep_graph.terms import collect_expr_deps, expr_children
 
 from .conftest import ExportBuilder
@@ -124,6 +124,7 @@ def test_expr_children_covers_every_constructor(builder: ExportBuilder) -> None:
         "proj": (builder.proj("S", 0, leaf), 1),
         "mdata": (builder.mdata(leaf), 1),
     }
+    assert set(cases) == {k.value for k in ExprKey}
     ex = load(builder.lines)
     for kind, (idx, expected) in cases.items():
         assert len(expr_children(ex.expr(idx))) == expected, kind

@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from typing import Any
 
-from .ndjson import EXPR_KEYS, Export, ExportFormatError
+from .ndjson import Export, ExportFormatError, ExprKey
 
 __all__: list[str] = [
     "NAT_TYPE",
@@ -37,15 +37,15 @@ STR_TYPE = "String"
 def expr_children(rec: dict[str, Any]) -> list[int]:
     """Expression indices directly referenced by an expression record."""
     match rec:
-        case {"app": app}:
+        case {ExprKey.APP: app}:
             return [int(app["fn"]), int(app["arg"])]
-        case {"lam": binder} | {"forallE": binder}:
+        case {ExprKey.LAM: binder} | {ExprKey.FORALL: binder}:
             return [int(binder["type"]), int(binder["body"])]
-        case {"letE": le}:
+        case {ExprKey.LET: le}:
             return [int(le["type"]), int(le["value"]), int(le["body"])]
-        case {"proj": proj}:
+        case {ExprKey.PROJ: proj}:
             return [int(proj["struct"])]
-        case {"mdata": mdata}:
+        case {ExprKey.MDATA: mdata}:
             return [int(mdata["expr"])]
         case _:
             return []
@@ -56,13 +56,13 @@ def expr_own_consts(
 ) -> Iterator[str]:
     """Constant names referenced by this record itself, ignoring children."""
     match rec:
-        case {"const": const}:
+        case {ExprKey.CONST: const}:
             yield ex.name(int(const["name"]))
-        case {"proj": proj}:
+        case {ExprKey.PROJ: proj}:
             yield ex.name(int(proj["typeName"]))
-        case {"natVal": _} if include_literal_types:
+        case {ExprKey.NAT_VAL: _} if include_literal_types:
             yield NAT_TYPE
-        case {"strVal": _} if include_literal_types:
+        case {ExprKey.STR_VAL: _} if include_literal_types:
             yield STR_TYPE
 
 
@@ -91,5 +91,5 @@ def collect_expr_deps(
 
 
 def check_expr_keys(rec: dict[str, Any]) -> None:
-    if not EXPR_KEYS.intersection(rec):
+    if not any(key in rec for key in ExprKey):
         raise ExportFormatError(f"expression record {rec.get('ie')} has no known kind")
