@@ -87,9 +87,17 @@ class Export:
             return ""
 
         chain: list[int] = []
+        # `chain` is the walk in order; `seen` is the same indices for O(1)
+        # revisit detection.  Testing `cur in chain` instead would be O(n^2),
+        # which matters: test_deeply_nested_name_does_not_recurse walks 5000.
+        seen: set[int] = set()
         cur = idx
 
         while cur != ANONYMOUS and cur not in cache:
+            if cur in seen:
+                raise ExportFormatError(f"cyclic name chain at index {cur}")
+
+            seen.add(cur)
             chain.append(cur)
             rec = self.names.get(cur)
             if rec is None:

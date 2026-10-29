@@ -35,7 +35,6 @@ STR_TYPE = "String"
 
 
 def expr_children(rec: dict[str, Any]) -> list[int]:
-    """Expression indices directly referenced by an expression record."""
     match rec:
         case {ExprKey.APP: app}:
             return [int(app["fn"]), int(app["arg"])]
@@ -54,7 +53,6 @@ def expr_children(rec: dict[str, Any]) -> list[int]:
 def expr_own_consts(
     ex: Export, rec: dict[str, Any], *, include_literal_types: bool = True
 ) -> Iterator[str]:
-    """Constant names referenced by this record itself, ignoring children."""
     match rec:
         case {ExprKey.CONST: const}:
             yield ex.name(int(const["name"]))

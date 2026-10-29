@@ -74,6 +74,25 @@ def test_dangling_name_index_raises(builder: ExportBuilder) -> None:
         ex.name(999)
 
 
+@pytest.mark.timeout(5)
+def test_self_referential_name_raises() -> None:
+    ex = load(['{"str": {"pre": 5, "str": "x"}, "in": 5}'])
+    with pytest.raises(ExportFormatError, match="cyclic name chain"):
+        ex.name(5)
+
+
+@pytest.mark.timeout(5)
+def test_mutually_referential_names_raise() -> None:
+    ex = load(
+        [
+            '{"str": {"pre": 6, "str": "x"}, "in": 5}',
+            '{"str": {"pre": 5, "str": "y"}, "in": 6}',
+        ]
+    )
+    with pytest.raises(ExportFormatError, match="cyclic name chain"):
+        ex.name(5)
+
+
 def test_dangling_expr_index_raises(builder: ExportBuilder) -> None:
     ex = load(builder.lines)
     with pytest.raises(ExportFormatError, match="dangling expression index"):

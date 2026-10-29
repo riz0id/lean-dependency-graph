@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
-from collections.abc import Iterator, Sequence
+import tempfile
+from collections.abc import Generator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import IO
 
 from .ndjson import Export, load
 
@@ -20,20 +23,44 @@ __all__ = [
 
 DEFAULT_BINARY_NAME = "lean4export"
 
+#: Child stderr retained for an error message, taken from the tail.
+STDERR_TAIL_BYTES = 10_000
+
 
 class LeanToolingError(Exception):
     """A ``lake`` or ``lean4export`` invocation failed."""
 
 
 def run(cmd: Sequence[str], cwd: Path) -> str:
-    proc = subprocess.run(list(cmd), cwd=cwd, capture_output=True, text=True, check=False)
-    if proc.returncode != 0:
+    proc: subprocess.CompletedProcess[str] = subprocess.run(
+        args=list(cmd),
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    if proc.returncode == 0:
+        return proc.stdout
+    else:
         raise LeanToolingError(
             f"command failed ({proc.returncode}): {' '.join(cmd)}\n"
             f"cwd: {cwd}\n"
             f"stderr:\n{proc.stderr.strip()}"
         )
-    return proc.stdout
+
+
+def read_tail(fh: IO[bytes], limit: int = STDERR_TAIL_BYTES) -> str:
+    """Decode the last ``limit`` bytes of ``fh``, noting any truncation."""
+    fh.seek(0, os.SEEK_END)
+    size: int = fh.tell()
+    fh.seek(max(0, size - limit))
+    text: str = fh.read().decode("utf-8", errors="replace").strip()
+
+    if size > limit:
+        return f"[... {size - limit} earlier bytes omitted ...]\n{text}"
+
+    return text
 
 
 @dataclass(frozen=True)
@@ -66,43 +93,38 @@ class LeanProject:
         return parse_modules(raw)
 
     def build(self, lib: str | None = None) -> None:
-        """Build Lean artifacts.
-
-        Required before exporting.  Lean performs no freshness check at import:
-        an ``.olean`` records its imports by name with no hash, so a stale
-        artifact is trusted as-is and yields a wrong graph with no error.
-        """
-        target = f"{lib}:leanArts" if lib else "leanArts"
-        run(["lake", "build", target], self.root)
+        run(
+            cmd=["lake", "build", f"{lib}:leanArts" if lib else "leanArts"],
+            cwd=self.root,
+        )
 
     def olean_missing(self, modules: Sequence[str]) -> list[str]:
-        """Modules with no ``.olean`` under ``.lake/build/lib``."""
-        libdir = self.root / ".lake" / "build" / "lib"
+        libdir: Path = self.root / ".lake" / "build" / "lib"
         missing: list[str] = []
+
         for mod in modules:
-            rel = Path(*mod.split(".")).with_suffix(".olean")
+            rel: Path = Path(*mod.split(".")).with_suffix(".olean")
+
             if not (libdir / rel).exists() and not (libdir / "lean" / rel).exists():
                 missing.append(mod)
+
         return missing
 
 
 def parse_modules(raw: str) -> list[str]:
-    """Extract module names from ``lake query --json`` output.
+    text: str = raw.strip()
 
-    Tolerant of shape: Lake has emitted both a single JSON document and
-    one JSON value per line across versions, and entries may be bare strings
-    or objects carrying the name under a few different keys.
-    """
-    text = raw.strip()
     if not text:
         return []
 
     payloads: list[object] = []
+
     try:
-        payloads = [json.loads(text)]
+        payloads: list[object] = [json.loads(text)]
     except json.JSONDecodeError:
         for line in text.splitlines():
-            line = line.strip()
+            line: str = line.strip()
+
             if line:
                 try:
                     payloads.append(json.loads(line))
@@ -190,37 +212,53 @@ class Exporter:
         decls: Sequence[str] | None = None,
         unsafe: bool = False,
         mdata: bool = False,
-    ) -> Iterator[str]:
-        """Yield NDJSON lines, streaming rather than buffering the whole export."""
+    ) -> Generator[str, None, None]:
+        """Yield NDJSON lines, streaming rather than buffering the whole export.
+
+        The child's stderr goes to a temporary file rather than a pipe.  With
+        both streams piped and only stdout drained, a child that writes more
+        than the pipe buffer (~64 KiB) to stderr blocks in ``write``, stops
+        producing stdout, and deadlocks against a parent blocked on ``read``.
+        """
         cmd = self.command(modules, decls=decls, unsafe=unsafe, mdata=mdata)
-        proc = subprocess.Popen(
-            cmd,
-            cwd=project.root,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-        )
-        assert proc.stdout is not None
-        try:
-            yield from proc.stdout
-        finally:
-            proc.stdout.close()
-            stderr = proc.stderr.read() if proc.stderr else ""
-            if proc.stderr:
-                proc.stderr.close()
-            code = proc.wait()
-            if code != 0:
-                raise LeanToolingError(
-                    f"lean4export failed ({code}).\n"
-                    f"  binary:            {self.binary}\n"
-                    f"  project toolchain: {project.toolchain or 'unknown'}\n"
-                    f"  modules:           {', '.join(modules[:5])}"
-                    f"{' ...' if len(modules) > 5 else ''}\n"
-                    "A mismatch between the binary's toolchain and the project's is the "
-                    "most common cause; both versions are shown above.\n"
-                    f"stderr:\n{stderr.strip()}"
-                )
+
+        with tempfile.TemporaryFile() as err:
+            proc = subprocess.Popen(
+                cmd,
+                cwd=project.root,
+                stdout=subprocess.PIPE,
+                stderr=err,
+                text=True,
+                bufsize=1,
+            )
+            assert proc.stdout is not None
+            exhausted = False
+
+            try:
+                yield from proc.stdout
+                exhausted = True
+            finally:
+                proc.stdout.close()
+
+                # An abandoned stream means the consumer stopped on purpose,
+                # usually while raising something more informative.  Reap the
+                # child, but do not report its signal as an export failure.
+                if not exhausted:
+                    proc.kill()
+
+                code = proc.wait()
+
+                if code != 0 and exhausted:
+                    raise LeanToolingError(
+                        f"lean4export failed ({code}).\n"
+                        f"  binary:            {self.binary}\n"
+                        f"  project toolchain: {project.toolchain or 'unknown'}\n"
+                        f"  modules:           {', '.join(modules[:5])}"
+                        f"{' ...' if len(modules) > 5 else ''}\n"
+                        "A mismatch between the binary's toolchain and the project's is the "
+                        "most common cause; both versions are shown above.\n"
+                        f"stderr:\n{read_tail(err)}"
+                    )
 
     def export(
         self,
