@@ -9,9 +9,15 @@ dependencies = ["networkx>=3.0"]
 [dependency-groups]
 dev = ["pytest>=8"]
 lint = [
-    "mypy>=1.11",
     "types-networkx>=3.6.1.20261021",
 ]
+
+[tool.uv]
+# `lint` is a default group so the stubs ty reads are always present. Without
+# this a bare `uv sync` (or any `uv run`, which syncs first) prunes
+# types-networkx, and `ty check` then fails on DiGraph[str] with an
+# invalid-type-form error that looks like a code bug rather than a missing stub.
+default-groups = ["dev", "lint"]
 
 [build-system]
 requires = ["hatchling"]
@@ -34,7 +40,31 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
-[tool.mypy]
-python_version = "3.11"
-strict = true
-files = ["src"]
+[tool.ty.environment]
+# The 3.11 floor from requires-python, not the venv's interpreter: 3.11 is the
+# oldest version this library claims to support, so it is the version that has
+# to keep type-checking clean.
+python-version = "3.11"
+# ty vendors typeshed's *stdlib* stubs only. types-networkx lives in the venv,
+# so without this every networkx reference is an unresolved import.
+python = ".venv"
+
+[tool.ty.rules]
+all = "error"
+
+# Demoted from the `all = "error"` baseline.
+#
+# Six sites conflate falsy-and-None for an optional str/Sequence, and in every
+# one of them that conflation is the intended behaviour, not an oversight:
+#   - export.py:59,70 and __init__.py:99 treat an empty `lib` as "no lib", which
+#     is what `lib=None` means; `lake query ":modules"` is the no-lib form.
+#   - export.py:175 appends the `--` separator only for a non-empty `decls`, so
+#     an empty sequence and None must behave alike.
+#   - test_differential.py:52 must not accept LEAN4EXPORT="" as a path.
+# Rewriting these as `is not None` would change behaviour for the empty string,
+# and change it for the worse. Six scattered `ty: ignore` comments for one
+# consistent idiom reads worse than demoting the rule once, here, with a reason.
+truthiness-test-of-none-union = "ignore"
+
+[tool.ty.terminal]
+output-format = "concise"

@@ -89,7 +89,7 @@ nix develop          # or `direnv allow`
 uv sync
 uv run pytest        # parser and graph tests; no Lean toolchain needed
 uv run pytest -m lean    # differential tests against lean4export
-uv run --group lint mypy src
+ty check             # strict type check, whole project
 ruff check . && ruff format .
 ```
 

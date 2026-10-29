@@ -102,7 +102,7 @@ class Export:
         # Unwind outwards, building each intermediate name exactly once.
         for i in reversed(chain):
             rec = self.names[i]
-            component = rec["str"]["str"] if "str" in rec else str(rec["num"]["i"])
+            component = str(rec["str"]["str"]) if "str" in rec else str(rec["num"]["i"])
             prefix = f"{prefix}.{component}" if prefix else component
             cache[i] = prefix
         return prefix
@@ -118,12 +118,18 @@ class Export:
     @property
     def format_version(self) -> str | None:
         fmt = self.meta.get("format")
-        return fmt.get("version") if isinstance(fmt, dict) else None
+        version = fmt.get("version") if isinstance(fmt, dict) else None
+        # Narrow to str: the meta block is untyped JSON, so a non-string
+        # version would otherwise escape through a ``str | None`` return.
+        return version if isinstance(version, str) else None
 
     @property
     def lean_version(self) -> str | None:
         lean = self.meta.get("lean")
-        return lean.get("version") if isinstance(lean, dict) else None
+        version = lean.get("version") if isinstance(lean, dict) else None
+        # Narrow to str: the meta block is untyped JSON, so a non-string
+        # version would otherwise escape through a ``str | None`` return.
+        return version if isinstance(version, str) else None
 
 
 def iter_records(lines: Iterable[str]) -> Iterator[dict[str, Any]]:

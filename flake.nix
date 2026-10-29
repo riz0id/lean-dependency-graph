@@ -15,6 +15,7 @@
             pkgs.python3
             pkgs.uv
             pkgs.ruff
+            pkgs.ty
             # Lean toolchain *manager*, not a pinned Lean. lean4export must be
             # built against the target project's own lean-toolchain, which is
             # only known at analysis time -- pinning a lean4 derivation here

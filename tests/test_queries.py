@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from lean_dep_graph.graph import build_graph
+from lean_dep_graph.graph import DeclGraph, build_graph
 from lean_dep_graph.ndjson import load
 from lean_dep_graph.queries import (
     axioms,
@@ -21,7 +21,7 @@ from lean_dep_graph.queries import (
 from .conftest import ExportBuilder
 
 
-def chain() -> object:
+def chain() -> DeclGraph:
     """Base <- mid <- top, plus an unrelated declaration."""
     b = ExportBuilder()
     s = b.sort(0)
