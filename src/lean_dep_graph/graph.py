@@ -1,16 +1,16 @@
 """Declaration model and graph construction."""
 
 from __future__ import annotations
-from networkx.classes.digraph import DiGraph
 
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, TypeAlias
 
 import networkx as nx
+from networkx.classes.digraph import DiGraph
 
-from .ndjson import Export
+from .ndjson import DeclKey, Export
 from .terms import collect_expr_deps
 
 __all__: list[str] = [
@@ -31,12 +31,12 @@ def is_internal(name: str) -> bool:
     return any(part.startswith("_") or MATCH_AUX.fullmatch(part) for part in name.split("."))
 
 
-@dataclass(frozen=True)
+@dataclass
 class Decl:
     name: str
     kind: Kind
-    roots: tuple[int, ...]
-    level_params: tuple[str, ...] = ()
+    roots: list[int]
+    level_params: list[str] = field(default_factory=list)
     is_unsafe: bool = False
 
     @property
@@ -46,9 +46,8 @@ class Decl:
 
 @dataclass
 class Group:
-
     id: str
-    members: tuple[str, ...]
+    members: list[str]
     kind: Kind
 
     @property
@@ -56,25 +55,25 @@ class Group:
         return len(self.members) > 1
 
 
-def level_params(ex: Export, raw: Iterable[Any] | None) -> tuple[str, ...]:
-    return tuple(ex.name(int(i)) for i in raw or ())
+def level_params(ex: Export, raw: Iterable[Any] | None) -> list[str]:
+    return [ex.name(int(i)) for i in raw or ()]
 
 
 def decl_name(ex: Export, body: dict[str, Any]) -> str:
     return ex.name(int(body["name"]))
 
 
-def parse_decls(ex: Export) -> tuple[dict[str, Decl], list[tuple[str, tuple[str, ...]]]]:
+def parse_decls(ex: Export) -> tuple[dict[str, Decl], list[tuple[str, list[str]]]]:
     """Return every declaration plus the grouping constraints to apply.
 
     The second element lists ``(kind, member_names)`` for each group; singleton
     groups are implied by any declaration not named in one.
     """
     decls: dict[str, Decl] = {}
-    groups: list[tuple[str, tuple[str, ...]]] = []
+    groups: list[tuple[str, list[str]]] = []
     quot_members: list[str] = []
 
-    def add(name: str, kind: Kind, roots: tuple[int, ...], body: dict[str, Any]) -> None:
+    def add(name: str, kind: Kind, roots: list[int], body: dict[str, Any]) -> None:
         decls[name] = Decl(
             name=name,
             kind=kind,
@@ -85,59 +84,59 @@ def parse_decls(ex: Export) -> tuple[dict[str, Decl], list[tuple[str, tuple[str,
 
     for key, body in ex.decls:
         match key:
-            case "inductive":
+            case DeclKey.INDUCTIVE:
                 members: list[str] = []
                 for tv in body.get("types", ()):
                     name = ex.name(int(tv["name"]))
-                    add(name, "inductive", (int(tv["type"]),), tv)
+                    add(name, "inductive", [int(tv["type"])], tv)
                     members.append(name)
 
                 for cv in body.get("ctors", ()):
                     name = ex.name(int(cv["name"]))
-                    add(name, "ctor", (int(cv["type"]),), cv)
+                    add(name, "ctor", [int(cv["type"])], cv)
                     members.append(name)
 
                 for rv in body.get("recs", ()):
                     name = ex.name(int(rv["name"]))
-                    roots = (int(rv["type"]), *(int(r["rhs"]) for r in rv.get("rules", ())))
+                    roots = [int(rv["type"]), *(int(r["rhs"]) for r in rv.get("rules", ()))]
                     add(name, "rec", roots, rv)
                     members.append(name)
 
                 if members:
-                    groups.append(("inductive", tuple(members)))
-            case "axiom":
-                add(decl_name(ex, body), "axiom", (int(body["type"]),), body)
-            case "quot":
+                    groups.append(("inductive", list(members)))
+            case DeclKey.AXIOM:
+                add(decl_name(ex, body), "axiom", [int(body["type"])], body)
+            case DeclKey.QUOT:
                 name = decl_name(ex, body)
-                add(name, "quot", (int(body["type"]),), body)
+                add(name, "quot", [int(body["type"])], body)
                 quot_members.append(name)
-            case "def" | "thm" | "opaque":
+            case DeclKey.DEF | DeclKey.THM | DeclKey.OPAQUE:
                 name = decl_name(ex, body)
-                add(name, key, (int(body["type"]), int(body["value"])), body)
-                allg = tuple(ex.name(int(i)) for i in body.get("all", ()) or ())
+                add(name, key.value, [int(body["type"]), int(body["value"])], body)
+                allg = [ex.name(int(i)) for i in body.get("all", ()) or ()]
                 if len(allg) > 1:
-                    groups.append((key, allg))
-            case "constructor":
-                add(decl_name(ex, body), "ctor", (int(body["type"]),), body)
-            case "recursor":
-                roots = (int(body["type"]), *(int(r["rhs"]) for r in body.get("rules", ())))
+                    groups.append((key.value, allg))
+            case DeclKey.CONSTRUCTOR:
+                add(decl_name(ex, body), "ctor", [int(body["type"])], body)
+            case DeclKey.RECURSOR:
+                roots = [int(body["type"]), *(int(r["rhs"]) for r in body.get("rules", ()))]
                 add(decl_name(ex, body), "rec", roots, body)
 
     if len(quot_members) > 1:
-        groups.append(("quot", tuple(quot_members)))
+        groups.append(("quot", list(quot_members)))
 
     return decls, groups
 
 
 def build_groups(
-    decls: dict[str, Decl], constraints: list[tuple[str, tuple[str, ...]]]
+    decls: dict[str, Decl], constraints: list[tuple[str, list[str]]]
 ) -> tuple[dict[str, Group], dict[str, str]]:
     """Assign every declaration to a group; returns (groups, name -> group id)."""
     node_of: dict[str, str] = {}
     groups: dict[str, Group] = {}
 
     for kind, members in constraints:
-        present = tuple(m for m in members if m in decls)
+        present = [m for m in members if m in decls]
         if not present:
             continue
         if any(m in node_of for m in present):
@@ -149,7 +148,7 @@ def build_groups(
 
     for name, decl in decls.items():
         if name not in node_of:
-            groups[name] = Group(id=name, members=(name,), kind=decl.kind)
+            groups[name] = Group(id=name, members=[name], kind=decl.kind)
             node_of[name] = name
 
     return groups, node_of
@@ -235,7 +234,7 @@ class DeclGraph:
     def group_of(self, name: str) -> Group:
         return self.groups[self.node_of(name)]
 
-    def members(self, name: str) -> tuple[str, ...]:
+    def members(self, name: str) -> list[str]:
         """All declarations that enter the kernel together with ``name``."""
         return self.group_of(name).members
 

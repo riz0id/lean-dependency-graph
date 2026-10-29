@@ -18,7 +18,7 @@ def test_singleton_declarations_are_their_own_group(builder: ExportBuilder) -> N
     builder.axiom("A", builder.sort(0))
     builder.define("d", builder.const("A"), builder.const("A"))
     g = graph_of(builder)
-    assert g.members("d") == ("d",)
+    assert g.members("d") == ["d"]
     assert not g.group_of("d").is_block
 
 

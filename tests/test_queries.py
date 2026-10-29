@@ -149,7 +149,7 @@ def test_topological_order_emits_blocks_as_single_entries() -> None:
     b.define("m1", s, b.const("m2"), all_=["m1", "m2"])
     b.define("m2", s, b.const("m1"), all_=["m1", "m2"])
     g = build_graph(load(b.lines))
-    assert topological_order(g) == [("m1", "m2")]
+    assert topological_order(g) == [["m1", "m2"]]
 
 
 def test_stats_reports_structure() -> None:

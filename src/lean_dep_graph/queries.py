@@ -101,11 +101,11 @@ def path(g: DeclGraph, frm: str, to: str) -> list[str] | None:
         return None
 
 
-def cycles(g: DeclGraph) -> list[tuple[str, ...]]:
-    return [tuple(sorted(scc)) for scc in nx.strongly_connected_components(g.graph) if len(scc) > 1]
+def cycles(g: DeclGraph) -> list[list[str]]:
+    return [sorted(scc) for scc in nx.strongly_connected_components(g.graph) if len(scc) > 1]
 
 
-def topological_order(g: DeclGraph) -> list[tuple[str, ...]]:
+def topological_order(g: DeclGraph) -> list[list[str]]:
     try:
         order: list[str] = list(nx.topological_sort(g.graph))
     except nx.NetworkXUnfeasible as exc:

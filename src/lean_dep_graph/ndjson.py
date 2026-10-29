@@ -11,12 +11,13 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
 __all__: list[str] = [
     "ANONYMOUS",
-    "DECL_KEYS",
+    "DeclKey",
     "EXPR_KEYS",
     "Export",
     "ExportFormatError",
@@ -25,16 +26,19 @@ __all__: list[str] = [
     "load_path",
 ]
 
-DECL_KEYS: tuple[str, ...] = (
-    "axiom",
-    "def",
-    "opaque",
-    "thm",
-    "quot",
-    "inductive",
-    "constructor",
-    "recursor",
-)
+
+class DeclKey(StrEnum):
+    """Top-level record keys that introduce a declaration."""
+
+    AXIOM = "axiom"
+    DEF = "def"
+    OPAQUE = "opaque"
+    THM = "thm"
+    QUOT = "quot"
+    INDUCTIVE = "inductive"
+    CONSTRUCTOR = "constructor"
+    RECURSOR = "recursor"
+
 
 EXPR_KEYS: frozenset[str] = frozenset(
     {
@@ -67,7 +71,7 @@ class Export:
     names: dict[int, dict[str, Any]] = field(default_factory=dict)
     levels: dict[int, dict[str, Any]] = field(default_factory=dict)
     exprs: dict[int, dict[str, Any]] = field(default_factory=dict)
-    decls: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
+    decls: list[tuple[DeclKey, dict[str, Any]]] = field(default_factory=list)
 
     name_cache: dict[int, str] = field(default_factory=dict, repr=False)
 
@@ -157,7 +161,7 @@ def load(lines: Iterable[str]) -> Export:
             case {"ie": idx}:
                 ex.exprs[int(idx)] = rec
             case _:
-                for key in DECL_KEYS:
+                for key in DeclKey:
                     if key in rec:
                         ex.decls.append((key, rec[key]))
                         break

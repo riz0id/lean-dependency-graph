@@ -34,21 +34,21 @@ NAT_TYPE = "Nat"
 STR_TYPE = "String"
 
 
-def expr_children(rec: dict[str, Any]) -> tuple[int, ...]:
+def expr_children(rec: dict[str, Any]) -> list[int]:
     """Expression indices directly referenced by an expression record."""
     match rec:
         case {"app": app}:
-            return (int(app["fn"]), int(app["arg"]))
+            return [int(app["fn"]), int(app["arg"])]
         case {"lam": binder} | {"forallE": binder}:
-            return (int(binder["type"]), int(binder["body"]))
+            return [int(binder["type"]), int(binder["body"])]
         case {"letE": le}:
-            return (int(le["type"]), int(le["value"]), int(le["body"]))
+            return [int(le["type"]), int(le["value"]), int(le["body"])]
         case {"proj": proj}:
-            return (int(proj["struct"]),)
+            return [int(proj["struct"])]
         case {"mdata": mdata}:
-            return (int(mdata["expr"]),)
+            return [int(mdata["expr"])]
         case _:
-            return ()
+            return []
 
 
 def expr_own_consts(
