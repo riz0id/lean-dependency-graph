@@ -1,0 +1,40 @@
+[project]
+name = "lean-dep-graph"
+version = "0.1.0"
+description = "Declaration-level dependency graphs for Lean 4 packages, from lean4export NDJSON"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["networkx>=3.0"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+lint = [
+    "mypy>=1.11",
+    "types-networkx>=3.6.1.20261021",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lean_dep_graph"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not lean'"
+markers = [
+  "lean: requires a Lean toolchain and a built lean4export binary",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src"]

@@ -1,0 +1,95 @@
+{"meta": {"exporter": {"name": "lean4export", "version": "test"}, "lean": {"githash": "deadbeef", "version": "4.35.0"}, "format": {"version": "3.1.0"}}}
+{"sort": 0, "ie": 1}
+{"str": {"pre": 0, "str": "Nat"}, "in": 1}
+{"axiom": {"name": 1, "levelParams": [], "type": 1, "isUnsafe": false}}
+{"str": {"pre": 0, "str": "String"}, "in": 2}
+{"axiom": {"name": 2, "levelParams": [], "type": 1, "isUnsafe": false}}
+{"str": {"pre": 0, "str": "Quot"}, "in": 3}
+{"quot": {"name": 3, "levelParams": [], "type": 1, "kind": "type"}}
+{"str": {"pre": 3, "str": "mk"}, "in": 4}
+{"quot": {"name": 4, "levelParams": [], "type": 1, "kind": "ctor"}}
+{"str": {"pre": 3, "str": "lift"}, "in": 5}
+{"quot": {"name": 5, "levelParams": [], "type": 1, "kind": "lift"}}
+{"str": {"pre": 3, "str": "ind"}, "in": 6}
+{"quot": {"name": 6, "levelParams": [], "type": 1, "kind": "ind"}}
+{"str": {"pre": 0, "str": "a"}, "in": 7}
+{"forallE": {"name": 7, "type": 1, "body": 1, "binderInfo": "default"}, "ie": 2}
+{"str": {"pre": 0, "str": "Prod"}, "in": 8}
+{"str": {"pre": 8, "str": "mk"}, "in": 9}
+{"const": {"name": 9, "us": []}, "ie": 3}
+{"str": {"pre": 8, "str": "rec"}, "in": 10}
+{"inductive": {"types": [{"name": 8, "levelParams": [], "type": 1, "numParams": 0, "numIndices": 0, "all": [8], "ctors": [9], "numNested": 0, "isRec": true, "isUnsafe": false, "isReflexive": false}], "ctors": [{"name": 9, "levelParams": [], "type": 2, "induct": 8, "cidx": 0, "numParams": 0, "numFields": 0, "isUnsafe": false}], "recs": [{"name": 10, "levelParams": [], "type": 1, "all": [10], "numParams": 0, "numIndices": 0, "numMotives": 1, "numMinors": 1, "rules": [{"ctor": 0, "nfields": 0, "rhs": 3}], "k": false, "isUnsafe": false}]}}
+{"str": {"pre": 0, "str": "Forest"}, "in": 11}
+{"const": {"name": 11, "us": []}, "ie": 4}
+{"str": {"pre": 0, "str": "Tree"}, "in": 12}
+{"const": {"name": 12, "us": []}, "ie": 5}
+{"str": {"pre": 11, "str": "nil"}, "in": 13}
+{"const": {"name": 13, "us": []}, "ie": 6}
+{"str": {"pre": 12, "str": "node"}, "in": 14}
+{"const": {"name": 14, "us": []}, "ie": 7}
+{"str": {"pre": 11, "str": "cons"}, "in": 15}
+{"str": {"pre": 12, "str": "rec"}, "in": 16}
+{"str": {"pre": 11, "str": "rec"}, "in": 17}
+{"inductive": {"types": [{"name": 12, "levelParams": [], "type": 1, "numParams": 0, "numIndices": 0, "all": [12, 11], "ctors": [14], "numNested": 0, "isRec": true, "isUnsafe": false, "isReflexive": false}, {"name": 11, "levelParams": [], "type": 1, "numParams": 0, "numIndices": 0, "all": [12, 11], "ctors": [13, 15], "numNested": 0, "isRec": true, "isUnsafe": false, "isReflexive": false}], "ctors": [{"name": 14, "levelParams": [], "type": 4, "induct": 12, "cidx": 0, "numParams": 0, "numFields": 0, "isUnsafe": false}, {"name": 13, "levelParams": [], "type": 1, "induct": 11, "cidx": 1, "numParams": 0, "numFields": 0, "isUnsafe": false}, {"name": 15, "levelParams": [], "type": 5, "induct": 11, "cidx": 2, "numParams": 0, "numFields": 0, "isUnsafe": false}], "recs": [{"name": 16, "levelParams": [], "type": 1, "all": [16, 17], "numParams": 0, "numIndices": 0, "numMotives": 1, "numMinors": 1, "rules": [{"ctor": 0, "nfields": 0, "rhs": 6}], "k": false, "isUnsafe": false}, {"name": 17, "levelParams": [], "type": 1, "all": [16, 17], "numParams": 0, "numIndices": 0, "numMotives": 1, "numMinors": 1, "rules": [{"ctor": 0, "nfields": 0, "rhs": 7}], "k": false, "isUnsafe": false}]}}
+{"str": {"pre": 0, "str": "Choice"}, "in": 18}
+{"axiom": {"name": 18, "levelParams": [], "type": 1, "isUnsafe": false}}
+{"const": {"name": 18, "us": []}, "ie": 8}
+{"str": {"pre": 0, "str": "DependsOnChoice"}, "in": 19}
+{"axiom": {"name": 19, "levelParams": [], "type": 8, "isUnsafe": false}}
+{"const": {"name": 1, "us": []}, "ie": 9}
+{"str": {"pre": 0, "str": "odd"}, "in": 20}
+{"const": {"name": 20, "us": []}, "ie": 10}
+{"str": {"pre": 0, "str": "even"}, "in": 21}
+{"def": {"name": 21, "levelParams": [], "type": 9, "value": 10, "hints": "abbrev", "safety": "safe", "all": [21, 20]}}
+{"const": {"name": 1, "us": []}, "ie": 11}
+{"const": {"name": 21, "us": []}, "ie": 12}
+{"def": {"name": 20, "levelParams": [], "type": 11, "value": 12, "hints": "abbrev", "safety": "safe", "all": [21, 20]}}
+{"const": {"name": 1, "us": []}, "ie": 13}
+{"natVal": "42", "ie": 14}
+{"str": {"pre": 0, "str": "nat_lit"}, "in": 22}
+{"def": {"name": 22, "levelParams": [], "type": 13, "value": 14, "hints": "abbrev", "safety": "safe", "all": [22]}}
+{"const": {"name": 2, "us": []}, "ie": 15}
+{"strVal": "hello", "ie": 16}
+{"str": {"pre": 0, "str": "str_lit"}, "in": 23}
+{"def": {"name": 23, "levelParams": [], "type": 15, "value": 16, "hints": "abbrev", "safety": "safe", "all": [23]}}
+{"const": {"name": 1, "us": []}, "ie": 17}
+{"const": {"name": 9, "us": []}, "ie": 18}
+{"proj": {"typeName": 8, "idx": 0, "struct": 18}, "ie": 19}
+{"str": {"pre": 0, "str": "projects"}, "in": 24}
+{"def": {"name": 24, "levelParams": [], "type": 17, "value": 19, "hints": "abbrev", "safety": "safe", "all": [24]}}
+{"const": {"name": 1, "us": []}, "ie": 20}
+{"const": {"name": 1, "us": []}, "ie": 21}
+{"natVal": "1", "ie": 22}
+{"bvar": 0, "ie": 23}
+{"str": {"pre": 0, "str": "tmp"}, "in": 25}
+{"letE": {"name": 25, "type": 21, "value": 22, "body": 23, "nondep": false}, "ie": 24}
+{"str": {"pre": 0, "str": "with_let"}, "in": 26}
+{"def": {"name": 26, "levelParams": [], "type": 20, "value": 24, "hints": "abbrev", "safety": "safe", "all": [26]}}
+{"const": {"name": 1, "us": []}, "ie": 25}
+{"const": {"name": 22, "us": []}, "ie": 26}
+{"mdata": {"expr": 26, "data": {"note": "x"}}, "ie": 27}
+{"str": {"pre": 0, "str": "wrapped"}, "in": 27}
+{"def": {"name": 27, "levelParams": [], "type": 25, "value": 27, "hints": "abbrev", "safety": "safe", "all": [27]}}
+{"const": {"name": 1, "us": []}, "ie": 28}
+{"const": {"name": 1, "us": []}, "ie": 29}
+{"bvar": 0, "ie": 30}
+{"lam": {"name": 1, "type": 29, "body": 30, "binderInfo": "default"}, "ie": 31}
+{"str": {"pre": 0, "str": "lambda_shadowing_Nat"}, "in": 28}
+{"def": {"name": 28, "levelParams": [], "type": 28, "value": 31, "hints": "abbrev", "safety": "safe", "all": [28]}}
+{"const": {"name": 19, "us": []}, "ie": 32}
+{"const": {"name": 19, "us": []}, "ie": 33}
+{"str": {"pre": 0, "str": "_proof_1"}, "in": 29}
+{"def": {"name": 29, "levelParams": [], "type": 32, "value": 33, "hints": "abbrev", "safety": "safe", "all": [29]}}
+{"const": {"name": 29, "us": []}, "ie": 34}
+{"str": {"pre": 0, "str": "uses_internal"}, "in": 30}
+{"thm": {"name": 30, "levelParams": [], "type": 1, "value": 34, "all": [30]}}
+{"const": {"name": 1, "us": []}, "ie": 35}
+{"const": {"name": 22, "us": []}, "ie": 36}
+{"str": {"pre": 0, "str": "sealed"}, "in": 31}
+{"opaque": {"name": 31, "levelParams": [], "type": 35, "value": 36, "isUnsafe": false, "all": [31]}}
+{"const": {"name": 1, "us": []}, "ie": 37}
+{"const": {"name": 31, "us": []}, "ie": 38}
+{"const": {"name": 24, "us": []}, "ie": 39}
+{"app": {"fn": 38, "arg": 39}, "ie": 40}
+{"str": {"pre": 0, "str": "top"}, "in": 32}
+{"def": {"name": 32, "levelParams": [], "type": 37, "value": 40, "hints": "abbrev", "safety": "safe", "all": [32]}}

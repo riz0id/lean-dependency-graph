@@ -1,0 +1,5 @@
+name = "depfixture"
+defaultTargets = ["DepFixture"]
+
+[[lean_lib]]
+name = "DepFixture"
