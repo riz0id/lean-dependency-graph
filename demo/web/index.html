@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lean declaration dependency graph</title>
+    <style>
+      :root {
+        --bg: #0b0d12;
+        --panel: #151922e6;
+        --line: #2a3140;
+        --fg: #d9dee8;
+        --muted: #8792a6;
+        --accent: #ffa657;
+        --accent2: #56d4dd;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          13px/1.45 ui-sans-serif,
+          -apple-system,
+          "Segoe UI",
+          system-ui,
+          sans-serif;
+      }
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        cursor: grab;
+      }
+      canvas.dragging {
+        cursor: grabbing;
+      }
+      .panel {
+        position: fixed;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px;
+        backdrop-filter: blur(8px);
+      }
+      #hud {
+        top: 12px;
+        left: 12px;
+        min-width: 260px;
+        max-width: 340px;
+      }
+      #hud h1 {
+        margin: 0 0 8px;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+      #hud h1 small {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 2px 10px;
+        margin: 0 0 8px;
+      }
+      dt {
+        color: var(--muted);
+      }
+      dd {
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      #search {
+        width: 100%;
+        padding: 5px 7px;
+        background: #0b0d12;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        color: var(--fg);
+        font: inherit;
+      }
+      #results {
+        max-height: 180px;
+        overflow-y: auto;
+        margin-top: 6px;
+      }
+      #results button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: 0;
+        color: var(--fg);
+        font: inherit;
+        padding: 3px 5px;
+        border-radius: 4px;
+        cursor: pointer;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #results button:hover {
+        background: #ffffff14;
+      }
+      label.row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 6px;
+        color: var(--muted);
+      }
+      label.row input[type="range"] {
+        flex: 1;
+        min-width: 0;
+      }
+      label.row select {
+        flex: 1;
+        min-width: 0;
+        background: #0b0d12;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        color: var(--fg);
+        font: inherit;
+        padding: 3px 5px;
+      }
+      #legend {
+        bottom: 12px;
+        left: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        max-width: 60vw;
+      }
+      #legend span {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--muted);
+      }
+      #legend i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+      }
+      #legend b {
+        display: inline-block;
+      }
+      #selection {
+        top: 12px;
+        right: 12px;
+        max-width: 420px;
+        display: none;
+      }
+      #selection.on {
+        display: block;
+      }
+      #selname {
+        font-weight: 600;
+        word-break: break-all;
+      }
+      .fwd {
+        color: var(--accent);
+      }
+      .rev {
+        color: var(--accent2);
+      }
+      #tip {
+        position: fixed;
+        pointer-events: none;
+        display: none;
+        max-width: 460px;
+        z-index: 5;
+      }
+      #tip.on {
+        display: block;
+      }
+      #tip code {
+        word-break: break-all;
+      }
+      #members {
+        color: var(--muted);
+        margin-top: 4px;
+        white-space: pre-wrap;
+        max-height: 140px;
+        overflow-y: auto;
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        text-align: center;
+        gap: 8px;
+        background: var(--bg);
+        z-index: 10;
+      }
+      #boot.done {
+        display: none;
+      }
+      #bootmsg {
+        color: var(--muted);
+      }
+      kbd {
+        border: 1px solid var(--line);
+        border-bottom-width: 2px;
+        border-radius: 4px;
+        padding: 0 4px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gl"></canvas>
+
+    <div id="boot">
+      <strong>Loading dependency graph</strong>
+      <div id="bootmsg">fetching buffers&hellip;</div>
+    </div>
+
+    <div class="panel" id="hud">
+      <h1>Declaration dependency graph <small id="prov"></small></h1>
+      <dl>
+        <dt>nodes</dt>
+        <dd id="s-nodes">&mdash;</dd>
+        <dt>edges</dt>
+        <dd id="s-edges">&mdash;</dd>
+        <dt>drawn</dt>
+        <dd id="s-drawn">&mdash;</dd>
+        <dt>depth</dt>
+        <dd id="s-depth">&mdash;</dd>
+        <dt>fps</dt>
+        <dd id="s-fps">&mdash;</dd>
+      </dl>
+      <input
+        id="search"
+        type="search"
+        placeholder="search declarations&hellip;"
+        autocomplete="off"
+      />
+      <div id="results"></div>
+      <label class="row"
+        >edges <input id="budget" type="range" min="4" max="24" step="1" />
+        <span id="budgetval"></span></label
+      >
+      <label class="row"
+        >depth <input id="depthmin" type="range" min="0" max="1" step="1" />
+        <span id="depthval"></span></label
+      >
+      <label class="row"
+        ><input id="showinternal" type="checkbox" checked /> internal declarations</label
+      >
+      <label class="row"
+        >colour by
+        <select id="colorby">
+          <option value="kind">declaration kind</option>
+          <option value="community">community band</option>
+          <option value="depth">kernel depth</option>
+        </select></label
+      >
+      <div style="margin-top: 8px; color: var(--muted)">
+        <kbd>drag</kbd> pan &middot; <kbd>wheel</kbd> zoom &middot; <kbd>f</kbd> fit &middot;
+        <kbd>e</kbd> edges &middot; <kbd>esc</kbd> clear
+      </div>
+    </div>
+
+    <div class="panel" id="selection">
+      <div id="selname"></div>
+      <dl style="margin-top: 8px">
+        <dt class="fwd">needs</dt>
+        <dd id="s-fwd">&mdash;</dd>
+        <dt class="rev">needed by</dt>
+        <dd id="s-rev">&mdash;</dd>
+        <dt>direct</dt>
+        <dd id="s-direct">&mdash;</dd>
+      </dl>
+    </div>
+
+    <div class="panel" id="legend"></div>
+
+    <div class="panel" id="tip">
+      <code id="tipname"></code>
+      <div id="tipmeta" style="color: var(--muted)"></div>
+      <div id="members"></div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

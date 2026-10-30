@@ -6,3 +6,5 @@ __pycache__/
 result
 .direnv/
 tests/lean/.lake/
+demo/web/data/
+demo/scratch/

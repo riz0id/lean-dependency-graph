@@ -99,13 +99,20 @@ def graph_for_project(
             + (f" (lib {lib!r})" if lib else " (default targets)")
         )
 
-    stale = project.olean_missing(mods)
-    if stale:
+    missing = project.olean_missing(mods)
+    if missing:
+        hint = (
+            "`lake build` succeeded, so these names are most likely wrong, or "
+            "belong to a library outside the built target."
+            if build
+            else "Run `lake build` in the project, or pass build=True."
+        )
         raise LeanToolingError(
             "no .olean found for: "
-            + ", ".join(stale[:5])
-            + (" ..." if len(stale) > 5 else "")
-            + "\nRun `lake build` in the project, or pass build=True."
+            + ", ".join(missing[:5])
+            + (" ..." if len(missing) > 5 else "")
+            + "\n"
+            + hint
         )
 
     export = exporter.export(project, mods)

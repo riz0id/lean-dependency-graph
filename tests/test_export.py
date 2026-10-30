@@ -6,12 +6,14 @@ toolchain and run in the default suite, unlike ``test_differential.py``.
 
 from __future__ import annotations
 
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
+from lean_dep_graph import export
 from lean_dep_graph.export import Exporter, LeanProject, LeanToolingError
 
 #: Interleaves stdout lines with 4 KiB stderr writes -- 800 KiB of stderr in
@@ -109,3 +111,76 @@ def test_command_separates_decls_only_when_present() -> None:
     ]
     assert "--" not in exporter.command(["A"], decls=[])
     assert "--" not in exporter.command(["A"], decls=None)
+
+
+def olean_at(libdir: Path, module: str) -> Path:
+    """Create an empty ``.olean`` for ``module`` under ``libdir``, and return ``libdir``."""
+    path = libdir / Path(*module.split(".")).with_suffix(".olean")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+    return libdir
+
+
+def test_lean_path_is_split_on_the_platform_separator(
+    project: LeanProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = os.pathsep.join(["/one", "", "/two"]) + "\n"
+    monkeypatch.setattr(export, "run", lambda cmd, cwd: raw)
+
+    assert project.lean_path() == [Path("/one"), Path("/two")]
+
+
+def test_olean_missing_accepts_a_built_module(
+    project: LeanProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lib = olean_at(project.root / ".lake" / "build" / "lib", "A.B")
+    monkeypatch.setattr(LeanProject, "lean_path", lambda self: [lib])
+
+    assert project.olean_missing(["A.B"]) == []
+
+
+def test_olean_missing_searches_every_search_path_entry(
+    project: LeanProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One entry holding the module is enough; the earlier misses are not failures."""
+    first = project.root / "empty"
+    second = olean_at(project.root / "second", "A.B")
+    monkeypatch.setattr(LeanProject, "lean_path", lambda self: [first, second])
+
+    assert project.olean_missing(["A.B"]) == []
+
+
+def test_olean_missing_finds_dependency_package_artifacts(
+    project: LeanProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A dependency's artifacts live under .lake/packages/<pkg>/, not the root's lib."""
+    root_lib = project.root / ".lake" / "build" / "lib"
+    dep_lib = olean_at(
+        project.root / ".lake" / "packages" / "dep" / ".lake" / "build" / "lib", "Dep.M"
+    )
+    monkeypatch.setattr(LeanProject, "lean_path", lambda self: [root_lib, dep_lib])
+
+    assert project.olean_missing(["Dep.M"]) == []
+
+
+def test_olean_missing_reports_genuinely_absent_modules(
+    project: LeanProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The check must stay useful, not become a no-op."""
+    lib = olean_at(project.root / ".lake" / "build" / "lib", "A.B")
+    monkeypatch.setattr(LeanProject, "lean_path", lambda self: [lib])
+
+    assert project.olean_missing(["A.B", "No.Such"]) == ["No.Such"]
+
+
+def test_olean_missing_fails_open_when_the_search_path_is_unavailable(
+    project: LeanProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Blocking a valid export is the bug being fixed; never reintroduce it."""
+
+    def boom(self: LeanProject) -> list[Path]:
+        raise LeanToolingError("lake exploded")
+
+    monkeypatch.setattr(LeanProject, "lean_path", boom)
+
+    assert project.olean_missing(["Anything.At.All"]) == []

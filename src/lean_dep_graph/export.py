@@ -98,14 +98,38 @@ class LeanProject:
             cwd=self.root,
         )
 
+    def lean_path(self) -> list[Path]:
+        """Directories Lean will search for ``.olean`` files.
+
+        Asked of ``lake`` rather than reconstructed from the ``.lake`` layout:
+        this is the same ``LEAN_PATH`` that ``lake env lean4export`` will see,
+        so it covers dependency packages under ``.lake/packages`` and the
+        toolchain's own libraries without this module having to know where
+        Lake puts either.
+        """
+        raw = run(["lake", "env", "printenv", "LEAN_PATH"], self.root)
+        return [Path(p) for p in raw.strip().split(os.pathsep) if p]
+
     def olean_missing(self, modules: Sequence[str]) -> list[str]:
-        libdir: Path = self.root / ".lake" / "build" / "lib"
+        """Modules with no ``.olean`` anywhere on Lean's search path.
+
+        Fails open.  This is a pre-flight courtesy that turns a confusing
+        ``lean4export`` failure into a clear one; it is not a correctness
+        guarantee.  If the search path cannot be determined, report nothing
+        rather than block an export that would have succeeded: blocking a
+        valid request is the failure this check was fixed to stop causing.
+        """
+        try:
+            dirs: list[Path] = self.lean_path()
+        except LeanToolingError:
+            return []
+
         missing: list[str] = []
 
         for mod in modules:
             rel: Path = Path(*mod.split(".")).with_suffix(".olean")
 
-            if not (libdir / rel).exists() and not (libdir / "lean" / rel).exists():
+            if not any((d / rel).exists() for d in dirs):
                 missing.append(mod)
 
         return missing

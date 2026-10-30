@@ -82,6 +82,32 @@ Always build before exporting. Lean performs **no freshness check at import**:
 an `.olean` records its imports by name with no hash, so a stale artifact is
 trusted as-is and yields a wrong graph with no error.
 
+## Demo
+
+[`demo/`](demo/README.md) renders a whole library's graph in the browser with
+WebGL2 — every constant in the environment, placed by PivotMDS and multilevel
+force refinement over the dependency structure itself, with click-to-highlight
+closures. Kernel depth is a colour ramp rather than an axis, which leaves both
+axes to the graph; the result is 5.6x shorter drawn edges than the layered grid
+it replaced. It draws a transitively reduced edge set and elides the universal
+constants, which is 46.9x less ink for the same reachability; `edges.u32` and
+both CSR directions stay complete, so closures are unaffected. It needs its own pipeline: this
+library's loader keeps every expression as a `dict`, which does not survive a
+Mathlib-sized export, so `demo/build.py` streams the same records into flat
+arrays instead. Grouping is still `parse_decls` and `build_groups` verbatim.
+
+A smoke test on the committed fixture — 18 nodes, enough to prove the pipeline
+runs, not to look at:
+
+```bash
+uv run --group demo python -m demo.build tests/fixtures/sample.ndjson --out demo/web/data
+python3 -m http.server --directory demo/web 8000
+```
+
+The viewer always reads `demo/web/data`, so that command overwrites whatever is
+there. For the real graph — a built Mathlib and a matching `lean4export` — see
+[`demo/README.md`](demo/README.md).
+
 ## Development
 
 ```bash

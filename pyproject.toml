@@ -11,6 +11,10 @@ dev = ["pytest>=8", "pytest-timeout>=2.3"]
 lint = [
     "types-networkx>=3.6.1.20261021",
 ]
+# Not a default group: the demo pulls a compiled numpy wheel that the test
+# suite and the library itself have no use for. Run it with
+# `uv run --group demo python demo/build.py ...`.
+demo = ["numpy>=2", "orjson>=3"]
 
 [tool.uv]
 # `lint` is a default group so the stubs ty reads are always present. Without
